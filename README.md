@@ -12,3 +12,5 @@ screen, and data is transmitted securely to a cloud platform. The device employs
 algorithm, correcting for corneal hysteresis and central corneal thickness (CCT) to ensure accurate readings,
 even after corneal surgeries. Weighing 750g and built with ISO-certified medical components, the TonoLITE
 offers a user-friendly, precise, and reliable tool for proactive glaucoma management at home.
+
+YouTube : https://youtu.be/uMQLXOlUx8E?si=PbhPJDeiQuzWr4GM
