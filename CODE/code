@@ -1,1 +1,122 @@
+#include "stm32f10x.h"
+#include <stdio.h>
+#define APPLANATION_THRESHOLD 1000  
+#define P_INITIAL 10                
+#define P_STEP 1                
+#define I_BASELINE 500           
+#define C1 0.5                   
+#define C2 0.3                     
+#define C3 0.2                      
 
+uint16_t airPressure = 0;   
+uint16_t lightIntensity = 0; 
+uint32_t applanationTime = 0; 
+uint32_t recoveryTime = 0;    
+
+void init_ADC(void);
+void init_TIM2(void);
+void start_air_puff(void);
+void stop_air_puff(void);
+uint16_t read_ADC(uint8_t channel);
+uint32_t measure_time(void);
+float calculate_IOP(uint16_t P_ap, uint32_t T_ap, uint32_t T_rec);
+
+int main(void)
+{
+    
+    init_ADC();
+    init_TIM2();
+    
+    uint16_t P_ap = 0;
+    uint32_t T_ap = 0;
+    uint32_t T_rec = 0;
+    float IOP = 0.0;
+    start_air_puff();
+    for (airPressure = P_INITIAL; airPressure < 60; airPressure += P_STEP)
+    {
+       
+        lightIntensity = read_ADC(2);
+
+        
+        if (lightIntensity >= APPLANATION_THRESHOLD)
+        {
+            P_ap = airPressure; 
+            T_ap = measure_time();
+            stop_air_puff();
+            break;
+        }
+    }
+
+    
+    while (1)
+    {
+        lightIntensity = read_ADC(2);
+        if (lightIntensity <= I_BASELINE)
+        {
+            T_rec = measure_time(); 
+            break;
+        }
+    }
+
+    
+    IOP = calculate_IOP(P_ap, T_ap, T_rec);
+   
+    printf("Intraocular Pressure (IOP): %.2f mmHg\n", IOP);
+
+    while (1);
+}
+void init_ADC(void)
+{
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
+    ADC_InitTypeDef ADC_InitStructure;
+    
+    ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;
+    ADC_InitStructure.ADC_ScanConvMode = DISABLE;
+    ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
+    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
+    ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
+    ADC_InitStructure.ADC_NbrOfChannel = 1;
+    ADC_Init(ADC1, &ADC_InitStructure);
+    ADC_Cmd(ADC1, ENABLE);
+}
+
+void init_TIM2(void)
+{
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+    TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
+
+    TIM_TimeBaseStructure.TIM_Period = 0xFFFF;
+    TIM_TimeBaseStructure.TIM_Prescaler = 72 - 1;  
+    TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
+    
+    TIM_Cmd(TIM2, ENABLE);
+}
+void start_air_puff(void)
+{
+    // GPIO_SetBits(GPIOA, GPIO_Pin_X); 
+}
+
+void stop_air_puff(void)
+{
+    // GPIO_ResetBits(GPIOA, GPIO_Pin_X); 
+}
+uint16_t read_ADC(uint8_t channel)
+{
+    ADC_RegularChannelConfig(ADC1, channel, 1, ADC_SampleTime_55Cycles5);
+    ADC_SoftwareStartConvCmd(ADC1, ENABLE);
+
+    while (ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET);
+    return ADC_GetConversionValue(ADC1);
+}
+
+uint32_t measure_time(void)
+{
+    return TIM_GetCounter(TIM2);
+}
+float calculate_IOP(uint16_t P_ap, uint32_t T_ap, uint32_t T_rec)
+{
+    float IOP_base = C1 * P_ap + C2 * T_ap + C3 * T_rec;
+    return IOP_base;
+}
